@@ -1,0 +1,24 @@
+# State store for disputatio (ADR 0003): PostgreSQL 16 in a Docker volume.
+# The app starts this compose project and health-checks it before connecting.
+# Host port defaults to 5433 to avoid clashing with other local Postgres instances.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: disputatio-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-disputatio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-disputatio}
+    ports:
+      - "${PGPORT:-5433}:5432"
+    volumes:
+      - disputatio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-disputatio} -d ${POSTGRES_DB:-disputatio}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  disputatio_pgdata:
