@@ -8,7 +8,9 @@ Sibling to [learny](https://github.com/augusto-dmh/learny) (books, web). They sh
 
 ## Status
 
-Pre-code. The definition lives in [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md), the load-bearing decisions in [docs/adr/](docs/adr/), and the module map in [docs/architecture.md](docs/architecture.md). Slice 0.1 is the first code drop.
+Definition and harness are in place; slice 0.1 is the first code drop.
+
+- Definition: [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) · Decisions: [docs/adr/](docs/adr/) · Process: [docs/PROCESS.md](docs/PROCESS.md) · Agent context: [AGENTS.md](AGENTS.md)
 
 ## Stack (decided — see ADRs)
 
@@ -17,6 +19,10 @@ Pre-code. The definition lives in [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)
 - **Memory:** FSRS via `rs-fsrs`, in the Rust backend, next to the database ([ADR 0004](docs/adr/0004-built-in-fsrs-review.md))
 - **Knowledge truth:** the Obsidian vault, markdown. Postgres holds mutable and derived state; `Dashboard.md` is abolished — the queue screen is the dashboard ([ADR 0003](docs/adr/0003-postgres-state-store-and-vault-as-knowledge-truth.md))
 - **AI:** direct LLM API first; agent sidecars later; MCP server post-1.0 ([ADR 0007](docs/adr/0007-ai-integration-staging.md))
+
+## Harness
+
+One-time: `make setup` (wires commit conventions), copy `.env.example` → `.env`. Then the vocabulary: `make infra` (Postgres), `make check` (the gate — human, agent, and CI run the same command). Work is sized in three lanes ([docs/PROCESS.md](docs/PROCESS.md)); architecture boundaries are enforced as code ([scripts/fitness.py](scripts/fitness.py), [ADR 0008](docs/adr/0008-harness-day-one.md)).
 
 ## The daily loop (proposed — [ADR 0005](docs/adr/0005-classical-session-model.md))
 

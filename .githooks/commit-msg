@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Conventional Commits enforcement (ADR 0008). Wired via: make setup
+regex='^(feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)(\([^)]+\))?!?: .{1,100}$'
+if ! grep -qE "$regex" "$1"; then
+  echo "commit rejected: use 'type(scope?): summary' — feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert" >&2
+  exit 1
+fi
