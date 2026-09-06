@@ -4,7 +4,7 @@ Hexagonal, in the learny tradition: the domain owns the rules, infrastructure ow
 
 ## Repo layout (target)
 
-```
+```text
 disputatio/
 ├── docs/                     # brief, ADRs, this map
 ├── docker/                   # postgres compose (ADR 0003)
