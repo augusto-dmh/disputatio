@@ -1,0 +1,21 @@
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Rust
+target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
