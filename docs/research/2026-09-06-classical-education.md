@@ -1,0 +1,22 @@
+# Classical education principles (2026-09-06)
+
+Research dossier behind ADR-0005 (session model) and the narratio/disputatio stages. Sources verified against primary texts and full-text archives; the goal was design-ready principles, not pop-psychology summaries.
+
+## The methods
+
+- **Aristotle** — Nicomachean Ethics VI: the intellectual virtues are plural and acquired by different activities (episteme: demonstration; techne: making; phronesis: deliberation about particulars; nous; sophia). Virtue comes by habituation — we become builders by building. Metaphysics I.1 gives the acquisition pipeline: sensation → memory → experience → art; artists can teach, men of mere experience cannot. http://classics.mit.edu/Aristotle/nicomachaen.6.vi.html · http://classics.mit.edu/Aristotle/metaphysics.1.i.html
+- **Aquinas and the scholastics** — the method runs lectio (line-by-line reading with glosses) → quaestio (contradictions become formal questions) → disputatio (live structured argument; objections defended, respondent answers) → determinatio (the master's resolution, later written up). The Summa's prologue states the design brief: for beginners, against "multiplication of useless questions", following the order of the subject matter, briefly and clearly. https://www.newadvent.org/summa/1001.htm · https://en.wikisource.org/wiki/Summa_Theologiae/Prologue
+- **Sertillanges, The Intellectual Life (1921)** — the intellectual life as a vocation unifying everything; guard the morning and wake with an idea; capture to the notebook immediately, then let ideas incubate during rest, walks, sleep; read few books deeply; treat forgetting as economy; notes are raw material that must ripen into works, not accumulate. https://archive.org/stream/a.d.sertillangestheintellectuallife/A.D.Sertillanges-The-Intellectual-Life_djvu.txt
+- **Mortimer Adler** — How to Read a Book: inspectional (skim to classify), analytical (X-ray the parts, come to terms, criticize), syntopical (read many books on a question); the four questions ending "Is it true?" and "What of it?"; marking books is part of the discipline. The Paideia Proposal: three irreplaceable modes — didactic instruction, coaching (skills are habits, not memories), Socratic seminars. https://fs.blog/how-to-read-a-book/ · https://en.wikipedia.org/wiki/Paideia_Proposal
+- **Trivium and Sayers** — grammar (structure of a subject) → logic/dialectic (reasoning, disputation) → rhetoric (expression); "the sole true end of education is to teach men how to learn for themselves." https://www.pccs.org/wp-content/uploads/2016/06/LostToolsOfLearning-DorothySayers.pdf
+- **Lectio divina (Guigo II)** — lectio → meditatio (rumination, "chewing") → oratio → contemplatio, with actio as the later fifth rung; a deliberate cyclic rhythm. https://en.wikipedia.org/wiki/Lectio_divina
+- **Ars memoriae** — memoria was a canon of rhetoric, tied to composition and invention (method of loci; Yates, The Art of Memory); Aquinas endorses loci (ST II-II q.49). https://en.wikipedia.org/wiki/Art_of_memory
+- **Newman and Mason** — knowledge as its own end; education forms "a philosophical habit of mind" by seeing knowledge as a whole. Charlotte Mason: after a single attentive reading of a living book, the student narrates — tells it back in their own words; recall is the lesson. https://www.newmanreader.org/works/idea/discourse5.html · https://en.wikipedia.org/wiki/Charlotte_Mason
+
+## Principles adopted into the design
+
+1. Virtues are plural → the queue alternates kinds of work (demonstrative recall, build tasks, judgment scenarios). 2. Habituation → daily doing over consumption. 3. Experience → art → teaching → extract the rule, explain it; teaching is the mastery test. 4. Disputatio precedes determinatio → the tutor argues against the learner's position before revealing the answer. 5. Ordo doctrinae → queue follows subject order, not novelty. 6. Capture now, incubate later; rest is work. 7. Inspectional before analytical. 8. Narration before notation → recall in your own words; notes only after recall. 9. Syntopical synthesis ends every cycle. 10. Memoria feeds composition → every topic issues an artifact.
+
+## Where modern tools violate the tradition
+
+Recognition-based review betrays narration; answers-first AI removes disputatio; endless consumption without output amputates rhetoric; algorithmic (novelty) ordering violates ordo; treating all knowledge as flashcards erases the techne/phronesis distinction.
