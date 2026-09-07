@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { commands, type QueueDto } from "../bindings";
 
 // Home is the Daily Queue (specs/queue-slice/requirements.md): per track the
-// chunks to consider today — stale flagged ahead of new ones — and the Anki
-// due total (or offline note) in the header. Sessions log through Rust only
-// (AGENTS.md boundary): start/stop/complete via the generated bindings.
+// chunks to consider today — stale flagged ahead of new ones — and the due
+// header counting the app's own FSRS backlog (specs/memoria-slice: since 0.2
+// scheduling is internal; AnkiConnect is gone from the queue path). Sessions
+// log through Rust only (AGENTS.md boundary): start/stop/complete via the
+// generated bindings.
 type ActiveSession = { sessionId: number; chunkId: number };
 
 function Home() {
@@ -83,13 +85,7 @@ function Home() {
   return (
     <section aria-label="Daily Queue">
       <h2>Daily Queue</h2>
-      <p>
-        {queue == null
-          ? "Loading…"
-          : queue.anki.due_total != null
-            ? `Anki due: ${queue.anki.due_total}`
-            : queue.anki.note}
-      </p>
+      <p>{queue == null ? "Loading…" : `Due reviews: ${queue.due_total}`}</p>
 
       {queue != null && queue.tracks.length === 0 && (
         <p>Nothing queued — index your vault from Settings.</p>

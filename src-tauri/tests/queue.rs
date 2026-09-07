@@ -1,14 +1,15 @@
-//! Queue integration (specs/queue-slice task 5): the read model and the
-//! daily-queue composition over a real Postgres (throwaway container, ADR
-//! 0009) — rotation order, stale resurfacing, the `track_position` override
-//! honored through the stored settings, and the Anki offline header when the
-//! gateway points nowhere.
+//! Queue integration (specs/queue-slice task 5, memoria-slice task 5): the
+//! read model and the daily-queue composition over a real Postgres
+//! (throwaway container, ADR 0009) — rotation order, stale resurfacing, the
+//! `track_position` override honored through the stored settings, and the
+//! due header counting the internal memoria backlog (ADR 0004: AnkiConnect
+//! left the queue path in slice 0.2).
 
 use chrono::{Duration, Utc};
 use disputatio_lib::application::queue::build_daily_queue;
-use disputatio_lib::domain::queue::{AnkiStatus, QueueRepo};
+use disputatio_lib::domain::queue::QueueRepo;
 use disputatio_lib::domain::settings::SettingsStore;
-use disputatio_lib::infrastructure::anki_connect::AnkiConnectGateway;
+use disputatio_lib::infrastructure::card_pg::PgCardRepo;
 use disputatio_lib::infrastructure::pg;
 use disputatio_lib::infrastructure::queue_pg::PgQueueRepo;
 use disputatio_lib::infrastructure::settings_pg::PgSettingsStore;
@@ -160,12 +161,21 @@ async fn seed_fixture(pool: &PgPool) {
     .await;
 }
 
-/// An AnkiConnect endpoint where nothing listens (ephemeral port, released).
-async fn dead_anki_url() -> String {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    drop(listener);
-    format!("http://127.0.0.1:{port}")
+/// One kept card due `hours_overdue` hours ago; `curation` gates it out of
+/// the due count when it is not `kept`.
+async fn seed_card(pool: &PgPool, front: &str, hours_overdue: i64, curation: &str) -> i64 {
+    sqlx::query(
+        "INSERT INTO cards (deck, front, back, due, curation)
+         VALUES ('fundamentos', $1, 'back', now() - ($2::int * interval '1 hour'), $3)
+         RETURNING id",
+    )
+    .bind(front)
+    .bind(hours_overdue as i32)
+    .bind(curation)
+    .fetch_one(pool)
+    .await
+    .expect("insert card")
+    .get::<i64, _>("id")
 }
 
 #[tokio::test]
@@ -203,24 +213,27 @@ async fn open_chunks_returns_only_open_rows_in_stable_order() {
 }
 
 #[tokio::test]
-async fn daily_queue_rotates_surfaces_stale_and_degrades_without_anki() {
+async fn daily_queue_rotates_surfaces_stale_and_counts_internal_due() {
     let (pool, _container) = db_on_fresh_postgres().await;
     seed_fixture(&pool).await;
 
-    let anki = AnkiConnectGateway::new(dead_anki_url().await);
+    // The header counts the app's own review backlog: one kept due card,
+    // one killed due card the curation gate hides.
+    seed_card(&pool, "due now", 3, "kept").await;
+    seed_card(&pool, "killed but due", 9, "killed").await;
+
     let queue = build_daily_queue(
         &PgQueueRepo(pool.clone()),
         &PgSettingsStore(pool.clone()),
-        &anki,
+        &PgCardRepo(pool.clone()),
         Utc::now(),
     )
     .await
     .expect("queue builds");
 
     assert_eq!(
-        queue.anki,
-        AnkiStatus::Offline,
-        "dead gateway degrades gracefully"
+        queue.due, 1,
+        "the header counts internal kept+due cards only"
     );
 
     let sections: Vec<(&str, Vec<(&str, bool)>)> = queue
@@ -276,11 +289,10 @@ async fn stored_position_override_reaches_the_daily_queue() {
         .await
         .expect("store the override");
 
-    let anki = AnkiConnectGateway::new(dead_anki_url().await);
     let queue = build_daily_queue(
         &PgQueueRepo(pool.clone()),
         &PgSettingsStore(pool.clone()),
-        &anki,
+        &PgCardRepo(pool.clone()),
         Utc::now(),
     )
     .await
@@ -330,11 +342,10 @@ async fn thirteen_day_old_in_progress_is_not_stale() {
         "fixture sanity: 13-day-old row reads back under the threshold"
     );
 
-    let anki = AnkiConnectGateway::new(dead_anki_url().await);
     let queue = build_daily_queue(
         &PgQueueRepo(pool.clone()),
         &PgSettingsStore(pool.clone()),
-        &anki,
+        &PgCardRepo(pool.clone()),
         Utc::now(),
     )
     .await

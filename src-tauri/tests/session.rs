@@ -8,7 +8,7 @@
 use chrono::{DateTime, Utc};
 use disputatio_lib::application::session::{complete_chunk, start_session, stop_session};
 use disputatio_lib::domain::chunk::ChunkStatus;
-use disputatio_lib::domain::queue::{build_queue, AnkiStatus, QueueRepo};
+use disputatio_lib::domain::queue::{build_queue, QueueRepo};
 use disputatio_lib::domain::session::{SessionError, SessionRepo};
 use disputatio_lib::domain::settings::SettingsStore;
 use disputatio_lib::infrastructure::pg;
@@ -201,7 +201,7 @@ async fn the_queue_surfaces_a_stopped_midway_chunk_as_the_frontier() {
     let queue = build_queue(
         PgQueueRepo(pool.clone()).open_chunks().await.expect("rows"),
         &BTreeMap::new(),
-        AnkiStatus::Due(0),
+        0,
         Utc::now(),
     );
     let first = &queue.tracks[0].items[0];

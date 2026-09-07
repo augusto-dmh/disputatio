@@ -1,30 +1,19 @@
-//! Queue command (specs/queue-slice task 5) — translation only
-//! (AGENTS.md layering): one service call, small DTOs out. The queue answer
-//! is aggregated in Rust; only the picked items cross IPC (payload rule).
+//! Queue command (specs/queue-slice task 5, memoria-slice task 5) —
+//! translation only (AGENTS.md layering): one service call, small DTOs out.
+//! The queue answer is aggregated in Rust; only the picked items cross IPC
+//! (payload rule). Since slice 0.2 the due header counts the app's own
+//! review backlog — AnkiConnect left the queue path (ADR 0004).
 
 use serde::Serialize;
 use specta::Type;
 use tauri::Manager;
 
 use crate::application::queue::build_daily_queue;
-use crate::domain::queue::{AnkiStatus, DailyQueue, QueueItem};
-use crate::infrastructure::anki_connect::AnkiConnectGateway;
+use crate::domain::queue::{DailyQueue, QueueItem};
+use crate::infrastructure::card_pg::PgCardRepo;
 use crate::infrastructure::pg::Db;
 use crate::infrastructure::queue_pg::PgQueueRepo;
 use crate::infrastructure::settings_pg::PgSettingsStore;
-
-/// Anki due header. Display-only — the total never gates the queue, and any
-/// Anki failure degrades to a note while the queue answers normally
-/// (specs/queue-slice/design.md point 3, requirements.md EARS).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
-pub struct AnkiHeaderDto {
-    /// Total due cards when Anki answered; `null` while offline/unavailable.
-    /// (64-bit narrowed at the IPC edge — specta forbids BigInt-style types.)
-    pub due_total: Option<u32>,
-    /// Human note when Anki did not answer ("Anki offline", or the failure
-    /// detail); `null` when `due_total` is present.
-    pub note: Option<String>,
-}
 
 /// One surfaced queue item. `stale` marks an `in_progress` chunk untouched
 /// for 14+ days — surfaced ahead of the track's new chunks (EARS). The DB
@@ -53,29 +42,12 @@ pub struct TrackQueueDto {
 /// The daily queue: one IPC call answering "what do I study now".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
 pub struct QueueDto {
-    pub anki: AnkiHeaderDto,
+    /// The memoria backlog: kept cards due now (internal scheduling,
+    /// migration 0002). Narrowed from 64-bit at this edge.
+    pub due_total: u32,
     /// Track sections in stable rotation order (fundamentos → system-design
     /// → videos); tracks with nothing to show are omitted.
     pub tracks: Vec<TrackQueueDto>,
-}
-
-impl From<AnkiStatus> for AnkiHeaderDto {
-    fn from(status: AnkiStatus) -> Self {
-        match status {
-            AnkiStatus::Due(total) => AnkiHeaderDto {
-                due_total: Some(u32::try_from(total).unwrap_or(u32::MAX)),
-                note: None,
-            },
-            AnkiStatus::Offline => AnkiHeaderDto {
-                due_total: None,
-                note: Some("Anki offline".to_string()),
-            },
-            AnkiStatus::Unavailable(detail) => AnkiHeaderDto {
-                due_total: None,
-                note: Some(format!("Anki unavailable: {detail}")),
-            },
-        }
-    }
 }
 
 impl From<QueueItem> for QueueItemDto {
@@ -96,7 +68,7 @@ impl From<QueueItem> for QueueItemDto {
 impl From<DailyQueue> for QueueDto {
     fn from(queue: DailyQueue) -> Self {
         QueueDto {
-            anki: AnkiHeaderDto::from(queue.anki),
+            due_total: u32::try_from(queue.due).unwrap_or(u32::MAX),
             tracks: queue
                 .tracks
                 .into_iter()
@@ -110,9 +82,9 @@ impl From<DailyQueue> for QueueDto {
 }
 
 /// The daily queue: per track the next chunk in course order, stale items
-/// flagged ahead of new ones, the Anki due total (or the offline note) in
-/// the header. Requires the state store — without it the answer cannot be
-/// honest, so the error says so (ADR 0003 degradation).
+/// flagged ahead of new ones, the internal due count in the header.
+/// Requires the state store — without it the answer cannot be honest, so
+/// the error says so (ADR 0003 degradation).
 #[tauri::command]
 #[specta::specta]
 pub async fn get_queue(app: tauri::AppHandle) -> Result<QueueDto, String> {
@@ -122,7 +94,7 @@ pub async fn get_queue(app: tauri::AppHandle) -> Result<QueueDto, String> {
     let queue = build_daily_queue(
         &PgQueueRepo(db.0.clone()),
         &PgSettingsStore(db.0.clone()),
-        &AnkiConnectGateway::default(),
+        &PgCardRepo(db.0.clone()),
         chrono::Utc::now(),
     )
     .await

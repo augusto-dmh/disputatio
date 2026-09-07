@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 const queueFixture = {
-  anki: { due_total: null, note: "Anki offline" },
+  due_total: 4,
   tracks: [
     {
       track: "fundamentos-enterprise",
@@ -68,7 +68,7 @@ function queueResultOk() {
 }
 
 describe("Home screen (Daily Queue)", () => {
-  it("renders track sections, stale flags and the Anki offline note", async () => {
+  it("renders track sections, stale flags and the internal due header", async () => {
     queueResultOk();
 
     render(<Home />);
@@ -80,16 +80,13 @@ describe("Home screen (Daily Queue)", () => {
     const videos = await screen.findByLabelText("Queue: videos");
     expect(await within(videos).findByText("Aula inaugural")).toBeDefined();
 
-    expect(await screen.findByText("Anki offline")).toBeDefined();
+    expect(await screen.findByText("Due reviews: 4")).toBeDefined();
   });
 
-  it("shows the due total in the header when Anki answers", async () => {
+  it("shows a zero backlog as a normal header", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "get_queue") {
-        return Promise.resolve({
-          ...queueFixture,
-          anki: { due_total: 12, note: null },
-        });
+        return Promise.resolve({ ...queueFixture, due_total: 0 });
       }
       if (cmd === "get_active_session") return Promise.resolve(null);
       return Promise.reject(`unexpected command ${cmd}`);
@@ -97,7 +94,7 @@ describe("Home screen (Daily Queue)", () => {
 
     render(<Home />);
 
-    await waitFor(() => expect(screen.getByText("Anki due: 12")).toBeDefined());
+    await waitFor(() => expect(screen.getByText("Due reviews: 0")).toBeDefined());
   });
 
   it("starts a session on a chunk and swaps the button to stop", async () => {
@@ -175,10 +172,7 @@ describe("Home screen (Daily Queue)", () => {
     // The refresh after completion: the completed chunk leaves the queue.
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "get_queue") {
-        return Promise.resolve({
-          anki: { due_total: 3, note: null },
-          tracks: [],
-        });
+        return Promise.resolve({ due_total: 3, tracks: [] });
       }
       if (cmd === "get_active_session") return Promise.resolve(null);
       return Promise.reject(`unexpected command ${cmd}`);
