@@ -1,4 +1,7 @@
+pub mod application;
+pub mod domain;
 pub mod infrastructure;
+pub mod presentation;
 
 use infrastructure::pg;
 use tauri::Manager;
@@ -12,7 +15,10 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            presentation::commands::reindex
+        ])
         .setup(|app| {
             // Persistence is best-effort at startup (ADR 0003): when Postgres
             // or Docker is down the app still opens — the pool is managed in
