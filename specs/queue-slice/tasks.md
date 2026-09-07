@@ -7,6 +7,6 @@ Ordered; each task is one PR-able commit/branch. If this list exceeds ~8 tasks, 
 3. [x] Vault indexer: walk fundamentos + system-design + videos (one video = one chunk), `scope.md` seeding, idempotent upsert on `vault_path`, `reindex` command
 4. [x] Settings: `app_settings`-backed vault path + per-track position override; Settings screen
 5. [ ] Queue service: ordo next-per-track, stale (14 days), track rotation; `get_queue` command; tauri-specta bindings
-6. [ ] AnkiGateway port + AnkiConnect adapter: due total, graceful "Anki offline"
+6. [x] AnkiGateway port + AnkiConnect adapter: due total, graceful "Anki offline"
 7. [ ] Home screen: queue list (next per track, stale flags, due header), start/stop session logging, complete chunk
 8. [ ] Session logging close-out: duration, stage rows; verify expectations; update README screenshots; run full `make check` + manual smoke and record results in the PR
