@@ -67,6 +67,35 @@ function queueResultOk() {
   });
 }
 
+const cardA = {
+  id: 101,
+  deck: "fundamentos",
+  front: "What is ordo?",
+  back: "The order of the subject matter.",
+  due: "2026-09-07T10:00:00Z",
+  state: "review",
+  reps: 3,
+};
+const cardB = {
+  id: 102,
+  deck: "fundamentos",
+  front: "Why narratio before notation?",
+  back: "Recall comes before notes.",
+  due: "2026-09-07T11:00:00Z",
+  state: "review",
+  reps: 2,
+};
+
+function reviewMocks() {
+  invokeMock.mockImplementation((cmd: string) => {
+    if (cmd === "get_queue") return Promise.resolve(queueFixture);
+    if (cmd === "get_active_session") return Promise.resolve(null);
+    if (cmd === "list_due_cards") return Promise.resolve([cardA, cardB]);
+    if (cmd === "grade_card") return Promise.resolve({ ...cardA, due: "2026-09-14T10:00:00Z" });
+    return Promise.reject(`unexpected command ${cmd}`);
+  });
+}
+
 describe("Home screen (Daily Queue)", () => {
   it("renders track sections, stale flags and the internal due header", async () => {
     queueResultOk();
@@ -187,6 +216,80 @@ describe("Home screen (Daily Queue)", () => {
     await waitFor(() => {
       expect(screen.getByText("Nothing queued — index your vault from Settings.")).toBeDefined();
     });
+  });
+
+  it("reviews a card end to end: load batch, reveal, grade, advance", async () => {
+    reviewMocks();
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Review now" }));
+
+    const panel = await screen.findByLabelText("Review");
+    expect(await within(panel).findByText("What is ordo?")).toBeDefined();
+    expect(within(panel).getByText(/card 1 of 2/)).toBeDefined();
+    expect(within(panel).queryByText("The order of the subject matter.")).toBeNull();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Reveal" }));
+    expect(await within(panel).findByText("The order of the subject matter.")).toBeDefined();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Grade good" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("grade_card", {
+        cardId: 101,
+        grade: "good",
+        durationMs: expect.any(Number),
+      });
+    });
+    await within(panel).findByText("Why narratio before notation?");
+    expect(within(panel).getByText(/card 2 of 2/)).toBeDefined();
+  });
+
+  it("closes the sitting after the last grade and refreshes the due header", async () => {
+    reviewMocks();
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Review now" }));
+    const panel = await screen.findByLabelText("Review");
+    fireEvent.click(await within(panel).findByRole("button", { name: "Reveal" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Grade easy" }));
+    await waitFor(() => expect(within(panel).getByText(/card 2 of 2/)).toBeDefined());
+    fireEvent.click(within(panel).getByRole("button", { name: "Reveal" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Grade good" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("grade_card", {
+        cardId: 102,
+        grade: "good",
+        durationMs: expect.any(Number),
+      });
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "Sitting done — 2 graded. FSRS scheduled the rest.",
+      ),
+    );
+    expect(await screen.findByRole("button", { name: "Review now" })).toBeDefined();
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_queue");
+    });
+  });
+
+  it("shows nothing due as a status, not an error", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_queue") return Promise.resolve(queueFixture);
+      if (cmd === "get_active_session") return Promise.resolve(null);
+      if (cmd === "list_due_cards") return Promise.resolve([]);
+      return Promise.reject(`unexpected command ${cmd}`);
+    });
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Review now" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe("Nothing due — reviews are clear."),
+    );
+    expect(screen.queryByLabelText("Review")).toBeNull();
   });
 
   it("surfaces queue load failures as an alert", async () => {
