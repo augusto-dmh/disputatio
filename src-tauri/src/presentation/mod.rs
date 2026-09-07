@@ -3,4 +3,5 @@
 
 pub mod commands;
 pub mod queue;
+pub mod session;
 pub mod settings;

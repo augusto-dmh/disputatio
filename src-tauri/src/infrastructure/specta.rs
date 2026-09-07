@@ -15,6 +15,10 @@ pub fn builder() -> Builder<tauri::Wry> {
         crate::greet,
         crate::presentation::commands::reindex,
         crate::presentation::queue::get_queue,
+        crate::presentation::session::complete_chunk,
+        crate::presentation::session::get_active_session,
+        crate::presentation::session::start_session,
+        crate::presentation::session::stop_session,
         crate::presentation::settings::get_settings,
         crate::presentation::settings::set_settings,
     ])
