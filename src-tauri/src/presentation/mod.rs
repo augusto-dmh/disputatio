@@ -2,4 +2,5 @@
 //! DTOs out, one service call (architecture.md layering rule 2).
 
 pub mod commands;
+pub mod queue;
 pub mod settings;

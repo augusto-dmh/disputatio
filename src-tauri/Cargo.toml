@@ -25,6 +25,9 @@ serde_json = "1"
 sqlx = { version = "0.8", features = ["tls-rustls", "postgres", "macros", "migrate", "chrono", "runtime-tokio"] }
 async-trait = "0.1"
 dotenvy = "0.15"
+# Timestamps: the stale rule (14 days) and session durations (tasks 5–8);
+# `sqlx` already speaks this crate for TIMESTAMPTZ.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 # IPC bindings (ADR 0009 — tauri-specta RC, accepted knowingly; exact pins as
 # the tauri-specta docs require for the RC line).
 specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }

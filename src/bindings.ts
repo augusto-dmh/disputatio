@@ -11,6 +11,13 @@ export const commands = {
 	 *  chunk progress.
 	 */
 	reindex: (vaultPath: string | null) => typedError<ReindexResponse, string>(__TAURI_INVOKE("reindex", { vaultPath })),
+	/**
+	 *  The daily queue: per track the next chunk in course order, stale items
+	 *  flagged ahead of new ones, the Anki due total (or the offline note) in
+	 *  the header. Requires the state store — without it the answer cannot be
+	 *  honest, so the error says so (ADR 0003 degradation).
+	 */
+	getQueue: () => typedError<QueueDto, string>(__TAURI_INVOKE("get_queue")),
 	getSettings: () => typedError<SettingsDto, string>(__TAURI_INVOKE("get_settings")),
 	/**
 	 *  Partial update: `vault_path: null` leaves it unchanged (the screen only
@@ -21,6 +28,51 @@ export const commands = {
 };
 
 /* Types */
+/**
+ *  Anki due header. Display-only — the total never gates the queue, and any
+ *  Anki failure degrades to a note while the queue answers normally
+ *  (specs/queue-slice/design.md point 3, requirements.md EARS).
+ */
+export type AnkiHeaderDto = {
+	/**
+	 *  Total due cards when Anki answered; `null` while offline/unavailable.
+	 *  (64-bit narrowed at the IPC edge — specta forbids BigInt-style types.)
+	 */
+	due_total: number | null,
+	/**
+	 *  Human note when Anki did not answer ("Anki offline", or the failure
+	 *  detail); `null` when `due_total` is present.
+	 */
+	note: string | null,
+};
+
+/**  The daily queue: one IPC call answering "what do I study now". */
+export type QueueDto = {
+	anki: AnkiHeaderDto,
+	/**
+	 *  Track sections in stable rotation order (fundamentos → system-design
+	 *  → videos); tracks with nothing to show are omitted.
+	 */
+	tracks: TrackQueueDto[],
+};
+
+/**
+ *  One surfaced queue item. `stale` marks an `in_progress` chunk untouched
+ *  for 14+ days — surfaced ahead of the track's new chunks (EARS). The DB
+ *  `BIGINT` id narrows to 32-bit at this edge — ids are tiny in this app
+ *  (same narrowing as `ReindexResponse`).
+ */
+export type QueueItemDto = {
+	chunk_id: number,
+	track: string,
+	title: string,
+	vault_path: string,
+	/**  `"queued"` or `"in_progress"` (the queue-facing pair). */
+	status: string,
+	stale: boolean,
+	est_minutes: number | null,
+};
+
 export type ReindexResponse = {
 	sources: number,
 	chunks: number,
@@ -36,6 +88,15 @@ export type ReindexResponse = {
 export type SettingsDto = {
 	vault_path: string | null,
 	track_positions: { [key in string]: string },
+};
+
+export type TrackQueueDto = {
+	track: string,
+	/**
+	 *  Surfacing order: stale first, then the fresh frontier, then the next
+	 *  new chunk (specs/queue-slice/design.md).
+	 */
+	items: QueueItemDto[],
 };
 
 /* Tauri Specta runtime */

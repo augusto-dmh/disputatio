@@ -26,7 +26,7 @@ pub enum RepoError {
 impl fmt::Display for RepoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RepoError::Database(msg) => write!(f, "index repo error: {msg}"),
+            RepoError::Database(msg) => write!(f, "repo error: {msg}"),
         }
     }
 }

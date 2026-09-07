@@ -14,6 +14,7 @@ pub fn builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new().commands(collect_commands![
         crate::greet,
         crate::presentation::commands::reindex,
+        crate::presentation::queue::get_queue,
         crate::presentation::settings::get_settings,
         crate::presentation::settings::set_settings,
     ])

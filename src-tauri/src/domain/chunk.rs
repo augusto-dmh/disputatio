@@ -19,6 +19,17 @@ impl ChunkStatus {
             ChunkStatus::Done => "done",
         }
     }
+
+    /// The stored form (`as_str`) back into the enum. The DB CHECK admits the
+    /// ingest-pipeline states too, but only these three are queue-facing.
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "queued" => Some(ChunkStatus::Queued),
+            "in_progress" => Some(ChunkStatus::InProgress),
+            "done" => Some(ChunkStatus::Done),
+            _ => None,
+        }
+    }
 }
 
 /// One study unit: a class for markdown tracks, one video for the video
