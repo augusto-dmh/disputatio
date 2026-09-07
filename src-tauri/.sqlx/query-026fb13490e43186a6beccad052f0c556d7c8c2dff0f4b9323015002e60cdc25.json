@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sources (kind, track, title, vault_path, ord)\n         VALUES ('course', 'fundamentos', 'Fundamentos Enterprise', 'courses/fundamentos-enterprise', 0)\n         RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "026fb13490e43186a6beccad052f0c556d7c8c2dff0f4b9323015002e60cdc25"
+}
