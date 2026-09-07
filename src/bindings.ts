@@ -5,6 +5,12 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
+	/**
+	 *  Re-index the vault: walk tracks + videos, seed from `scope.md`, upsert
+	 *  idempotently on `vault_path`. Never duplicates rows; never regresses
+	 *  chunk progress.
+	 */
+	reindex: (vaultPath: string | null) => typedError<ReindexResponse, string>(__TAURI_INVOKE("reindex", { vaultPath })),
 	getSettings: () => typedError<SettingsDto, string>(__TAURI_INVOKE("get_settings")),
 	/**
 	 *  Partial update: `vault_path: null` leaves it unchanged (the screen only
@@ -15,6 +21,13 @@ export const commands = {
 };
 
 /* Types */
+export type ReindexResponse = {
+	sources: number,
+	chunks: number,
+	/**  Chunks seeded done by the `scope.md` rules in this pass. */
+	done_seeded: number,
+};
+
 /**
  *  IPC shape of the settings aggregate. `track_positions` only carries tracks
  *  with an explicit override; keys are track names, values are the chunk
