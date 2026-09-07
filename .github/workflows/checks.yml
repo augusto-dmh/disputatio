@@ -1,0 +1,41 @@
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # NOTE: the rust/frontend jobs arrive with slice 0.1, where the code exists.
+  # Job-level `if: hashFiles(...)` and third-party action refs were proven to
+  # break workflow expansion on this repo (see PR #7) — new gates go in as
+  # plain steps or separate path-filtered workflows, never hashFiles job-ifs.
+  fitness:
+    name: fitness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: fitness (architecture boundaries)
+        run: python3 scripts/fitness.py
+      - name: markdownlint
+        run: npx -y markdownlint-cli2 "**/*.md"
+      - name: compose config
+        run: docker compose -f docker/docker-compose.yml config --quiet
+        env:
+          POSTGRES_PASSWORD: ci-placeholder
+
+  conventional-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: conventional PR title
+        run: |
+          title=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+          echo "PR title: $title"
+          printf '%s' "$title" | grep -qE '^(feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)(\([^)]+\))?!?: .{1,100}$' || {
+            echo "::error::PR title must be conventional: 'type(scope?): summary' (feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)"
+            exit 1
+          }
