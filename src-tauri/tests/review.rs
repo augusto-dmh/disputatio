@@ -67,15 +67,17 @@ async fn migration_0002_applies_and_due_query_orders_kept_cards() {
     }
     // Curation gates the review queue: drafts and killed cards never surface.
     for curation in ["draft", "killed"] {
-        sqlx::query("INSERT INTO cards (deck, front, back, due, curation) VALUES ($1, $2, $3, $4, $5)")
-            .bind("fundamentos")
-            .bind(curation)
-            .bind("the answer")
-            .bind(now - chrono::Duration::hours(99))
-            .bind(curation)
-            .execute(&pool)
-            .await
-            .expect("insert gated card");
+        sqlx::query(
+            "INSERT INTO cards (deck, front, back, due, curation) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind("fundamentos")
+        .bind(curation)
+        .bind("the answer")
+        .bind(now - chrono::Duration::hours(99))
+        .bind(curation)
+        .execute(&pool)
+        .await
+        .expect("insert gated card");
     }
 
     let fronts: Vec<String> = sqlx::query_scalar(
@@ -103,11 +105,10 @@ async fn grade_round_trip_persists_card_state_and_review_row_together() {
         .execute(&pool)
         .await
         .expect("insert new card");
-    let (card_id,): (i64,) =
-        sqlx::query_as("SELECT id FROM cards WHERE front = 'front'")
-            .fetch_one(&pool)
-            .await
-            .expect("find card");
+    let (card_id,): (i64,) = sqlx::query_as("SELECT id FROM cards WHERE front = 'front'")
+        .fetch_one(&pool)
+        .await
+        .expect("find card");
 
     // What application/review.rs will do in one transaction (task 4):
     // append the review row and move the card's FSRS state.
@@ -132,19 +133,27 @@ async fn grade_round_trip_persists_card_state_and_review_row_together() {
     .expect("update card state");
     tx.commit().await.expect("commit grade");
 
-    let row: (Option<f64>, Option<f64>, Option<String>, Option<chrono::DateTime<chrono::Utc>>, i32) =
-        sqlx::query_as(
-            "SELECT stability, difficulty, fsrs_state, due, reps FROM cards WHERE id = $1",
-        )
-        .bind(card_id)
-        .fetch_one(&pool)
-        .await
-        .expect("read card back");
-    assert_eq!(row.0, Some(3.15));
-    assert_eq!(row.1, Some(4.9));
-    assert_eq!(row.2.as_deref(), Some("review"));
-    assert_eq!(row.3, Some(now + chrono::Duration::days(4)));
-    assert_eq!(row.4, 1);
+    let (stability, difficulty, state, reps): (Option<f64>, Option<f64>, Option<String>, i32) =
+        sqlx::query_as("SELECT stability, difficulty, fsrs_state, reps FROM cards WHERE id = $1")
+            .bind(card_id)
+            .fetch_one(&pool)
+            .await
+            .expect("read card back");
+    let due_after_grade: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT due FROM cards WHERE id = $1")
+            .bind(card_id)
+            .fetch_one(&pool)
+            .await
+            .expect("read due");
+    assert_eq!(stability, Some(3.15));
+    assert_eq!(difficulty, Some(4.9));
+    assert_eq!(state.as_deref(), Some("review"));
+    assert_eq!(
+        due_after_grade,
+        Some(now + chrono::Duration::days(4)),
+        "the scheduler's next due is what persists"
+    );
+    assert_eq!(reps, 1);
 
     let (review_count, grade, state_before): (i64, i32, Option<String>) = sqlx::query_as(
         "SELECT count(*), max(grade), max(state_before) FROM reviews WHERE card_id = $1",
@@ -163,10 +172,12 @@ async fn uniqueness_contracts_make_import_idempotency_enforceable() {
     let (_container, pool) = setup().await;
     let now = chrono::Utc::now().trunc_subsecs(3);
 
-    sqlx::query("INSERT INTO cards (deck, front, back, anki_card_id) VALUES ('d', 'f', 'b', 1492739572063)")
-        .execute(&pool)
-        .await
-        .expect("insert card with anki id");
+    sqlx::query(
+        "INSERT INTO cards (deck, front, back, anki_card_id) VALUES ('d', 'f', 'b', 1492739572063)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert card with anki id");
     sqlx::query("INSERT INTO cards (deck, front, back, anki_card_id) VALUES ('d', 'f2', 'b', 1492739572999)")
         .execute(&pool)
         .await
