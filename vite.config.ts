@@ -2,7 +2,7 @@
 import process from "node:process";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -30,5 +30,10 @@ export default defineConfig(() => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+
+  // Vitest (ADR 0009): jsdom so component tests render the real screens.
+  test: {
+    environment: "jsdom",
   },
 }));

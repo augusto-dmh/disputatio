@@ -25,7 +25,19 @@ serde_json = "1"
 sqlx = { version = "0.8", features = ["tls-rustls", "postgres", "macros", "migrate", "chrono", "runtime-tokio"] }
 async-trait = "0.1"
 dotenvy = "0.15"
+# IPC bindings (ADR 0009 — tauri-specta RC, accepted knowingly; exact pins as
+# the tauri-specta docs require for the RC line).
+specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }
+specta-typescript = "=0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+[dev-dependencies]
+testcontainers = "0.24"
+testcontainers-modules = { version = "0.12", features = ["postgres"] }
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.6"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
@@ -34,9 +46,3 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
-
-[dev-dependencies]
-testcontainers = "0.24"
-testcontainers-modules = { version = "0.12", features = ["postgres"] }
-tempfile = "3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
