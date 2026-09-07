@@ -3,5 +3,6 @@
 
 pub mod index;
 pub mod queue;
+pub mod review;
 pub mod session;
 pub mod settings;

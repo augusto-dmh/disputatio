@@ -78,15 +78,45 @@ impl FsrsState {
     }
 }
 
+/// The curation gate (cards.curation, migration 0002): only `kept` cards
+/// review. Imports arrive pre-curated; narratio drafts (0.3) start here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Curation {
+    Draft,
+    Kept,
+    Killed,
+}
+
+impl Curation {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Curation::Draft => "draft",
+            Curation::Kept => "kept",
+            Curation::Killed => "killed",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Curation> {
+        match s {
+            "draft" => Some(Curation::Draft),
+            "kept" => Some(Curation::Kept),
+            "killed" => Some(Curation::Killed),
+            _ => None,
+        }
+    }
+}
+
 /// A card as the review flow sees it. `None` scheduling fields mean the
-/// card was never reviewed (new); curation filtering (`kept`) is the
-/// repo's WHERE clause, not this entity's business.
+/// card was never reviewed (new); the repo's WHERE clauses filter batches
+/// to `kept`, while the field rides along so a direct fetch can refuse
+/// grades on non-reviewable cards (requirements.md EARS).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Card {
     pub id: i64,
     pub deck: Option<String>,
     pub front: String,
     pub back: String,
+    pub curation: Curation,
     pub due: Option<DateTime<Utc>>,
     pub stability: Option<f64>,
     pub difficulty: Option<f64>,
@@ -194,6 +224,7 @@ mod tests {
             deck: Some("fundamentos".into()),
             front: format!("front {id}"),
             back: "back".into(),
+            curation: Curation::Kept,
             due,
             stability: None,
             difficulty: None,

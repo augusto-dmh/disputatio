@@ -9,7 +9,7 @@ use sqlx::Row;
 use chrono::{DateTime, Utc};
 
 use crate::domain::repo::RepoError;
-use crate::domain::review::{Card, CardRepo, CardState, FsrsState, ReviewLog};
+use crate::domain::review::{Card, CardRepo, CardState, Curation, FsrsState, ReviewLog};
 
 /// Read/write repo backed by the shared pool (`pg::Db` state handle). The
 /// FSRS columns are this repo's to write and nobody else's (architecture.md
@@ -29,11 +29,14 @@ fn card_from_row(row: sqlx::postgres::PgRow) -> Result<Card, RepoError> {
                 .ok_or_else(|| RepoError::Database(format!("unexpected fsrs_state {s:?}")))
         })
         .transpose()?;
+    let curation_raw: String = row.try_get("curation").map_err(db_err)?;
     Ok(Card {
         id: row.try_get("id").map_err(db_err)?,
         deck: row.try_get("deck").map_err(db_err)?,
         front: row.try_get("front").map_err(db_err)?,
         back: row.try_get("back").map_err(db_err)?,
+        curation: Curation::parse(&curation_raw)
+            .ok_or_else(|| RepoError::Database(format!("unexpected curation {curation_raw:?}")))?,
         due: row.try_get("due").map_err(db_err)?,
         stability: row.try_get("stability").map_err(db_err)?,
         difficulty: row.try_get("difficulty").map_err(db_err)?,
@@ -44,8 +47,8 @@ fn card_from_row(row: sqlx::postgres::PgRow) -> Result<Card, RepoError> {
     })
 }
 
-const CARD_COLUMNS: &str = "id, deck, front, back, due, stability, difficulty, fsrs_state, \
-                            last_review_at, reps, lapses";
+const CARD_COLUMNS: &str = "id, deck, front, back, curation, due, stability, difficulty, \
+                            fsrs_state, last_review_at, reps, lapses";
 
 impl CardRepo for PgCardRepo {
     async fn due_count(&self, now: DateTime<Utc>) -> Result<u64, RepoError> {

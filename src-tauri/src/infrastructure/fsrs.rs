@@ -6,6 +6,8 @@
 use chrono::{DateTime, Utc};
 use rs_fsrs::{Card as FsrsCard, Rating as FsrsRating, State as FsrsStateLib, FSRS};
 
+#[cfg(test)]
+use crate::domain::review::Curation;
 use crate::domain::review::{
     Card, CardState, FsrsState, Grade, ReviewLog, ScheduledReview, Scheduler,
 };
@@ -138,6 +140,7 @@ mod tests {
             deck: Some("fundamentos".into()),
             front: "front".into(),
             back: "back".into(),
+            curation: Curation::Kept,
             due: None,
             stability: None,
             difficulty: None,
