@@ -64,6 +64,18 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - name: add rustfmt and clippy
         run: rustup component add rustfmt clippy
+      # first-party action (PR #7 constraint); Cargo.lock is not committed, so
+      # the key hashes Cargo.toml and restore-keys salvage stale artifacts
+      - name: cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.toml') }}
+          restore-keys: |
+            rust-${{ runner.os }}-
       - run: cargo fmt --all -- --check
         working-directory: src-tauri
       - run: cargo clippy --all-targets -- -D warnings
