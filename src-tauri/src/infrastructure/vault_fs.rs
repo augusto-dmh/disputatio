@@ -5,8 +5,10 @@
 //! Vault contract (specs/queue-slice/requirements.md):
 //! - Class tracks: `courses/<track>/sessions/<session>/` — one session
 //!   directory is one class is one chunk. Course order comes from the
-//!   session directory's leading number (`05-foo` → ord 5), falling back to
-//!   sorted enumeration.
+//!   session directory's leading number (`05-foo` → ord 5); when numbers
+//!   are missing or collide (date-named sessions), sorted enumeration.
+//!   Titles: the scope's first meaningful `#` heading, else its first
+//!   lecture reference, else the directory name.
 //! - Video track: `courses/videos/**` — one video file is one chunk.
 //! - Seeding: a session with a `scope.md` whose task checkboxes are all
 //!   checked (and at least one exists) was already studied → chunk seeded
@@ -91,6 +93,10 @@ impl VaultReader for FsVaultReader {
 }
 
 /// One class = one chunk per session directory under `courses/<track>/sessions/`.
+/// Course order: the dir's leading number (`05-foo` → 5). When leading
+/// numbers are missing *or collide* — date-named session dirs like
+/// `2026-08-15` all read "2026" — the sorted directory order is the order
+/// (chronological for dates, `1..N`).
 fn walk_class_track(vault_root: &Path, track_dir: &Path) -> Result<Vec<Chunk>, VaultError> {
     let sessions_dir = track_dir.join("sessions");
     if !sessions_dir.is_dir() {
@@ -102,6 +108,9 @@ fn walk_class_track(vault_root: &Path, track_dir: &Path) -> Result<Vec<Chunk>, V
         .filter(|p| p.is_dir())
         .collect();
     session_dirs.sort();
+
+    let dir_names: Vec<String> = session_dirs.iter().map(|p| path_name(p)).collect();
+    let ords = course_ords(&dir_names);
 
     let mut chunks = Vec::new();
     for (i, session_dir) in session_dirs.iter().enumerate() {
@@ -115,10 +124,10 @@ fn walk_class_track(vault_root: &Path, track_dir: &Path) -> Result<Vec<Chunk>, V
             .unwrap_or(ChunkStatus::Queued);
         let title = scope
             .as_deref()
-            .and_then(heading_title)
+            .map(|scope| session_title(scope, &dir_name))
             .unwrap_or_else(|| title_from_dir(&dir_name));
         chunks.push(Chunk {
-            ord: leading_number(&dir_name).unwrap_or(i as i32 + 1),
+            ord: ords[i],
             title,
             vault_path: relative(vault_root, session_dir),
             est_minutes: None, // no duration source in the vault contract yet
@@ -126,6 +135,25 @@ fn walk_class_track(vault_root: &Path, track_dir: &Path) -> Result<Vec<Chunk>, V
         });
     }
     Ok(chunks)
+}
+
+/// Course order per track: each dir's leading number when those numbers are
+/// present and pairwise distinct, else plain `1..N` enumeration over the
+/// sorted names. Colliding numbers (date-named sessions) are ambiguous as
+/// course order — and would violate the `chunks(source_id, ord)` uniqueness —
+/// so the whole track falls back to enumeration.
+fn course_ords(dir_names: &[String]) -> Vec<i32> {
+    let leading: Vec<Option<i32>> = dir_names.iter().map(|n| leading_number(n)).collect();
+    let mut seen = std::collections::BTreeSet::new();
+    let all_distinct = leading.iter().all(|ord| match ord {
+        Some(n) => seen.insert(*n),
+        None => false,
+    });
+    if all_distinct && !leading.is_empty() {
+        leading.into_iter().map(|ord| ord.unwrap()).collect()
+    } else {
+        (1..=dir_names.len() as i32).collect()
+    }
 }
 
 /// One video = one chunk, recursively under `courses/videos/` (requirements:
@@ -190,15 +218,30 @@ pub(crate) fn seeded_status(scope_md: &str) -> ChunkStatus {
     }
 }
 
-/// First markdown `#` heading, trimmed — the session's own title when the
-/// scope file declares one.
-fn heading_title(scope_md: &str) -> Option<String> {
-    scope_md
+/// The session's title, in order of usefulness (real-vault shapes):
+/// 1. the scope's first `#` heading — unless it is the generic "Scope";
+/// 2. the scope's first lecture reference (inline code, e.g. a lecture file
+///    name) — the actual class content;
+/// 3. the directory name.
+fn session_title(scope_md: &str, dir_name: &str) -> String {
+    if let Some(title) = scope_md
         .lines()
         .map(str::trim)
         .find_map(|l| l.strip_prefix("# ").map(str::trim))
-        .filter(|t| !t.is_empty())
-        .map(ToString::to_string)
+        .filter(|t| !t.is_empty() && !t.eq_ignore_ascii_case("scope"))
+    {
+        return title.to_string();
+    }
+    if let Some(lecture) = scope_md.lines().find_map(|line| {
+        let l = line.trim_start().trim_start_matches(['-', '*', '+']).trim();
+        l.strip_prefix('`')
+            .and_then(|rest| rest.split('`').next())
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+    }) {
+        return title_from_dir(lecture);
+    }
+    title_from_dir(dir_name)
 }
 
 /// `05-what-is-an-enterprise` → 5 (course order anchored on session numbers).
@@ -398,6 +441,86 @@ mod tests {
             chunks[0].title, "Balanco",
             "alphabetical order without leading numbers"
         );
+    }
+
+    /// Regression (found by the slice-0.1 smoke against the real vault):
+    /// date-named session dirs all read the year as their leading number
+    /// (`2026-08-15` → 2026), which collides on `chunks(source_id, ord)` and
+    /// is meaningless as course order. The track must fall back to sorted
+    /// enumeration — chronological for ISO dates.
+    #[test]
+    fn date_named_sessions_fall_back_to_enumerated_order() {
+        let tmp = TempDir::new("dates");
+        tmp.write(
+            "courses/fundamentos-enterprise/sessions/2026-08-15/scope.md",
+            "# Aula 1\n- [ ] ler\n",
+        );
+        tmp.write(
+            "courses/fundamentos-enterprise/sessions/2026-08-16/scope.md",
+            "# Aula 2\n- [ ] ler\n",
+        );
+        tmp.write(
+            "courses/fundamentos-enterprise/sessions/2026-08-23/scope.md",
+            "# Aula 3\n- [ ] ler\n",
+        );
+
+        let scan = scan_at(&tmp.0);
+        let chunks = &scan.sources[0].chunks;
+        let ords: Vec<i32> = chunks.iter().map(|c| c.ord).collect();
+        assert_eq!(
+            ords,
+            vec![1, 2, 3],
+            "no collision, chronological order for ISO dates"
+        );
+        assert_eq!(chunks[0].title, "Aula 1");
+    }
+
+    /// Real-vault scope shape: the heading is the generic "Scope", the
+    /// actual class title lives in the lecture reference.
+    #[test]
+    fn scope_without_a_real_heading_uses_the_lecture_reference() {
+        let tmp = TempDir::new("scope-lect");
+        tmp.write(
+            "courses/fundamentos-enterprise/sessions/2026-08-15/scope.md",
+            "# Scope\n\nDate: 2026-08-15\n\nLectures this hour used:\n\n- `33-principios-da-arquitetura-evolutiva`\n",
+        );
+        let scan = scan_at(&tmp.0);
+        assert_eq!(
+            scan.sources[0].chunks[0].title, "Principios Da Arquitetura Evolutiva",
+            "the lecture reference is the class title"
+        );
+    }
+
+    #[test]
+    fn scope_with_only_the_generic_heading_falls_back_to_the_dir_name() {
+        let tmp = TempDir::new("scope-only");
+        tmp.write(
+            "courses/fundamentos-enterprise/sessions/2026-08-15/scope.md",
+            "# Scope\n\nDate: 2026-08-15\n",
+        );
+        let scan = scan_at(&tmp.0);
+        assert_eq!(scan.sources[0].chunks[0].title, "08 15");
+    }
+
+    #[test]
+    fn numbered_sessions_keep_their_course_order() {
+        let tmp = TempDir::new("numbered");
+        tmp.write(
+            "courses/system-design/sessions/02-modelos/scope.md",
+            "- [ ] ler\n",
+        );
+        tmp.write(
+            "courses/system-design/sessions/10-escala/scope.md",
+            "- [ ] ler\n",
+        );
+        tmp.write(
+            "courses/system-design/sessions/07-balanco/scope.md",
+            "- [ ] ler\n",
+        );
+
+        let scan = scan_at(&tmp.0);
+        let ords: Vec<i32> = scan.sources[0].chunks.iter().map(|c| c.ord).collect();
+        assert_eq!(ords, vec![2, 7, 10], "the dir numbers are the course order");
     }
 
     #[test]
