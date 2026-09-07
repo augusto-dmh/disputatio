@@ -53,11 +53,9 @@ function Home() {
     }
     setActive(null);
     const seconds = result.data.duration_seconds;
-    setStatus(
-      seconds != null
-        ? `Session stopped — ${Math.round(seconds / 60)} min logged.`
-        : "Session stopped.",
-    );
+    const logged =
+      seconds == null ? "" : seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)} min`;
+    setStatus(seconds == null ? "Session stopped." : `Session stopped — ${logged} logged.`);
   }
 
   async function completeChunk(chunkId: number, title: string) {

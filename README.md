@@ -8,7 +8,25 @@ Sibling to [learny](https://github.com/augusto-dmh/learny) (books, web). They sh
 
 ## Status
 
-Definition and harness are in place; slice 0.1 is the first code drop.
+**Slice 0.1 — the Daily Queue — is live**: the app indexes an Obsidian vault (class tracks + videos, `scope.md` seeding, idempotent re-index), answers "what do I study now" per track (stale items flagged first, stable rotation), reads the Anki due total when AnkiConnect is up, and logs study sessions to Postgres — start, stop, duration, stage row — no manual dashboard edits.
+
+![Daily Queue](docs/screenshots/home-daily-queue.png)
+
+The queue: per track the stale `in_progress` chunk first (untouched ≥ 14 days), then the fresh frontier, then the next chunk in course order; the Anki total rides in the header (or the offline note — it never gates the queue, [ADR 0004](docs/adr/0004-built-in-fsrs-review.md)).
+
+| Starting a session | Study record lands in Postgres |
+| --- | --- |
+| ![Session active](docs/screenshots/home-session-active.png) | stop writes end time, duration and the `lectio` stage row — verified via SQL (`sessions` ⋈ `session_stages`) |
+
+Settings holds the vault path and the per-track position override (`track_position:<track>`): ![Settings](docs/screenshots/settings.png)
+
+Reproduce the slice end-to-end against a real vault:
+
+```text
+make infra
+DISPUTATIO_VAULT_PATH=/path/to/vault \
+  cargo test --test smoke -- --ignored --nocapture   # from src-tauri
+```
 
 - Definition: [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) · Decisions: [docs/adr/](docs/adr/) · Process: [docs/PROCESS.md](docs/PROCESS.md) · Agent context: [AGENTS.md](AGENTS.md)
 
@@ -22,7 +40,7 @@ Definition and harness are in place; slice 0.1 is the first code drop.
 
 ## Harness
 
-One-time: `make setup` (wires commit conventions), copy `.env.example` → `.env`. Then the vocabulary: `make infra` (Postgres), `make check` (the gate — human, agent, and CI run the same command). Work is sized in three lanes ([docs/PROCESS.md](docs/PROCESS.md)); architecture boundaries are enforced as code ([scripts/fitness.py](scripts/fitness.py), [ADR 0008](docs/adr/0008-harness-day-one.md)).
+One-time: `make setup` (wires commit conventions), copy `.env.example` → `.env`. Then the vocabulary: `make infra` (Postgres), `make dev` (the app), `make check` (the gate — human, agent, and CI run the same command). Work is sized in three lanes ([docs/PROCESS.md](docs/PROCESS.md)); architecture boundaries are enforced as code ([scripts/fitness.py](scripts/fitness.py), [ADR 0008](docs/adr/0008-harness-day-one.md)).
 
 ## The daily loop (proposed — [ADR 0005](docs/adr/0005-classical-session-model.md))
 
