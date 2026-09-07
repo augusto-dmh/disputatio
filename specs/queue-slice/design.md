@@ -5,6 +5,7 @@
 Thin vertical slice, hexagonal per `docs/architecture.md`. Rust owns everything real (indexing, queue logic, DB, AnkiConnect); React renders one Home screen from a single `get_queue` command; tauri-specta generates the TS bindings. Sessions log as rows; the dashboard is the screen (ADR 0003 — no markdown regeneration).
 
 Queue logic (application service, pure domain rules):
+
 1. Per track: first chunk with status `queued` = next; an `in_progress` chunk untouched ≥14 days = stale, surfaced first.
 2. Merge tracks by stable rotation (fundamentos → system-design → video) so no track starves; the user can always pick any visible item.
 3. Anki due total is display-only in this slice — it never gates the queue (built-in FSRS replaces it in 0.2).
