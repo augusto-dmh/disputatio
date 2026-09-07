@@ -2,4 +2,5 @@
 //! no framework, no direct IO.
 
 pub mod index;
+pub mod queue;
 pub mod settings;
