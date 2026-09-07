@@ -13,7 +13,7 @@ use crate::infrastructure::index_repo::PgIndexRepo;
 use crate::infrastructure::pg::Db;
 use crate::infrastructure::vault_fs::FsVaultReader;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct ReindexResponse {
     pub sources: u32,
     pub chunks: u32,
@@ -42,6 +42,7 @@ fn resolve_vault_root(vault_path: Option<String>) -> Result<std::path::PathBuf, 
 /// idempotently on `vault_path`. Never duplicates rows; never regresses
 /// chunk progress.
 #[tauri::command]
+#[specta::specta]
 pub async fn reindex(
     app: AppHandle,
     vault_path: Option<String>,

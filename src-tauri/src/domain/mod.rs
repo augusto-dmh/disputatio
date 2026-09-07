@@ -3,5 +3,6 @@
 
 pub mod chunk;
 pub mod repo;
+pub mod settings;
 pub mod source;
 pub mod vault;

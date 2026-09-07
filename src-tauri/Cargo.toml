@@ -25,6 +25,11 @@ serde_json = "1"
 sqlx = { version = "0.8", features = ["tls-rustls", "postgres", "macros", "migrate", "chrono", "runtime-tokio"] }
 async-trait = "0.1"
 dotenvy = "0.15"
+# IPC bindings (ADR 0009 — tauri-specta RC, accepted knowingly; exact pins as
+# the tauri-specta docs require for the RC line).
+specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }
+specta-typescript = "=0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
