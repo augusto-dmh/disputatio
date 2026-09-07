@@ -28,6 +28,14 @@ DISPUTATIO_VAULT_PATH=/path/to/vault \
   cargo test --test smoke -- --ignored --nocapture   # from src-tauri
 ```
 
+**Slice 0.2 — Memoria — in review**: scheduling moved in-app (`rs-fsrs` behind a pure domain port, [ADR 0004](docs/adr/0004-built-in-fsrs-review.md)). The queue's due header now counts the app's own backlog — kept cards due now; AnkiConnect left the queue path entirely. Reviews run in the queue screen: Review now → front → reveal → grade (again/hard/good/easy); every grade persists the FSRS memory state and a review row in one transaction.
+
+| Queue with the internal due header | Grading a revealed card |
+| --- | --- |
+| ![Review now](docs/screenshots/memoria-queue-review-now.png) | ![Review revealed](docs/screenshots/memoria-review-revealed.png) |
+
+End of a sitting — the header refreshes from the work just graded (smoke-verified against the real vault DB: reviews ⋈ cards show stability/difficulty born on first grade): ![Review done](docs/screenshots/memoria-review-done.png)
+
 - Definition: [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) · Decisions: [docs/adr/](docs/adr/) · Process: [docs/PROCESS.md](docs/PROCESS.md) · Agent context: [AGENTS.md](AGENTS.md)
 
 ## Stack (decided — see ADRs)
