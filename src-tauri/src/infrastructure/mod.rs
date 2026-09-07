@@ -2,6 +2,8 @@
 //! world (filesystem, network, database).
 
 pub mod anki_connect;
+pub mod card_pg;
+pub mod fsrs;
 pub mod index_repo;
 pub mod pg;
 pub mod queue_pg;

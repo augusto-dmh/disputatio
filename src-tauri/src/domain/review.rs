@@ -3,7 +3,11 @@
 //! the port's implementation lives in `infrastructure` (rs-fsrs, banned
 //! here by `fitness.py`), services in `application` compose it.
 
+use std::future::Future;
+
 use chrono::{DateTime, Utc};
+
+use super::repo::RepoError;
 
 /// The four FSRS ratings (reviews.grade stores 1–4, migration 0002).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,6 +158,30 @@ pub fn due_batch(mut cards: Vec<Card>, limit: usize, now: DateTime<Utc>) -> Vec<
     cards.sort_by_key(|c| (c.due, c.id));
     cards.truncate(limit);
     cards
+}
+
+/// Port: the review flow's read/write view over the state store (ADR 0003),
+/// same shape as [`super::queue::QueueRepo`]. The SQL side filters curation
+/// to `kept` — killed and draft cards never surface for review.
+pub trait CardRepo {
+    /// Kept cards with `due <= now` — the queue header's number.
+    fn due_count(&self, now: DateTime<Utc>) -> impl Future<Output = Result<u64, RepoError>> + Send;
+    /// The review batch: kept, due, oldest first ([`due_batch`] in SQL).
+    fn due_cards(
+        &self,
+        limit: i64,
+        now: DateTime<Utc>,
+    ) -> impl Future<Output = Result<Vec<Card>, RepoError>> + Send;
+    /// One card by id — `Ok(None)` when gone (stale UI, killed, imported over).
+    fn get(&self, id: i64) -> impl Future<Output = Result<Option<Card>, RepoError>> + Send;
+    /// Persist one grade: append the review row and move the card's FSRS
+    /// state in a single transaction (requirements.md EARS).
+    fn apply_review(
+        &self,
+        card_id: i64,
+        state: &CardState,
+        log: &ReviewLog,
+    ) -> impl Future<Output = Result<(), RepoError>> + Send;
 }
 
 #[cfg(test)]

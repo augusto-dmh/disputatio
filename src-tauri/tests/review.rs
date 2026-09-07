@@ -5,6 +5,9 @@
 //! macros) — new SQL avoids .sqlx churn.
 
 use chrono::SubsecRound;
+use disputatio_lib::domain::review::{CardRepo as _, FsrsState, Grade, Scheduler as _};
+use disputatio_lib::infrastructure::card_pg::PgCardRepo;
+use disputatio_lib::infrastructure::fsrs::FsrsScheduler;
 use disputatio_lib::infrastructure::pg;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
@@ -218,4 +221,74 @@ async fn uniqueness_contracts_make_import_idempotency_enforceable() {
             .unwrap_or(false),
         "duplicate (card_id, reviewed_at) must be a unique violation"
     );
+}
+#[tokio::test]
+async fn card_repo_implements_the_due_batch_and_grade_write_contracts() {
+    let (_container, pool) = setup().await;
+    let now = chrono::Utc::now().trunc_subsecs(3);
+    let repo = PgCardRepo(pool.clone());
+
+    // Seed: two kept cards due (old and older), one future, one killed, one draft.
+    for (front, due, curation) in [
+        ("due-old", Some(now - chrono::Duration::hours(5)), "kept"),
+        ("due-older", Some(now - chrono::Duration::hours(50)), "kept"),
+        ("future", Some(now + chrono::Duration::days(3)), "kept"),
+        (
+            "killed-due",
+            Some(now - chrono::Duration::hours(9)),
+            "killed",
+        ),
+        ("draft-due", Some(now - chrono::Duration::hours(9)), "draft"),
+    ] {
+        sqlx::query(
+            "INSERT INTO cards (deck, front, back, due, curation) VALUES ('d', $1, 'b', $2, $3)",
+        )
+        .bind(front)
+        .bind(due)
+        .bind(curation)
+        .execute(&pool)
+        .await
+        .expect("seed card");
+    }
+
+    assert_eq!(
+        repo.due_count(now).await.expect("due count"),
+        2,
+        "kept + due only"
+    );
+    let batch = repo.due_cards(10, now).await.expect("due batch");
+    let fronts: Vec<&str> = batch.iter().map(|c| c.front.as_str()).collect();
+    assert_eq!(
+        fronts,
+        vec!["due-older", "due-old"],
+        "oldest due first, kept only"
+    );
+    assert_eq!(repo.due_cards(1, now).await.expect("limit").len(), 1);
+
+    let card = repo
+        .get(batch[0].id)
+        .await
+        .expect("get")
+        .expect("card exists");
+    assert_eq!(card.state, None, "fresh import is new");
+
+    // Grade the oldest-due card through the real adapter + repo write path.
+    let scheduler = FsrsScheduler::default();
+    let review = scheduler.schedule(&card, Grade::Good, Some(5000), now);
+    repo.apply_review(card.id, &review.state, &review.log)
+        .await
+        .expect("apply review");
+
+    let graded = repo.get(card.id).await.expect("get").expect("card exists");
+    assert_eq!(graded.state, Some(FsrsState::Learning));
+    assert!(graded.due.is_some_and(|d| d > now), "moved into the future");
+    assert_eq!(graded.reps, 1);
+    assert_eq!(
+        repo.due_count(now).await.expect("due count"),
+        1,
+        "graded card left the due set"
+    );
+
+    let missing = repo.get(i64::MAX).await.expect("get");
+    assert_eq!(missing, None, "gone cards read as None, not an error");
 }
