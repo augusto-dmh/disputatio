@@ -41,9 +41,10 @@ CREATE TABLE cards (
     -- curation gate (architecture.md sketch): imports arrive pre-curated = kept;
     -- drafts (0.3) start as draft; killed cards never surface for review
     curation TEXT NOT NULL DEFAULT 'kept' CHECK (curation IN ('draft', 'kept', 'killed')),
-    -- FSRS state — written only by the scheduler path (application/review.rs)
-    stability REAL,
-    difficulty REAL,
+    -- FSRS state — written only by the scheduler path (application/review.rs);
+    -- f64/DOUBLE PRECISION because rs-fsrs Card carries stability/difficulty as f64
+    stability DOUBLE PRECISION,
+    difficulty DOUBLE PRECISION,
     -- learning | review | relearning (rs-fsrs State; NULL = never reviewed = new)
     fsrs_state TEXT CHECK (fsrs_state IN ('learning', 'review', 'relearning')),
     due TIMESTAMPTZ,
@@ -60,8 +61,9 @@ CREATE TABLE reviews (
     reviewed_at TIMESTAMPTZ NOT NULL,
     -- fsrs_state of the card BEFORE this review; NULL = first review
     state_before TEXT,
-    elapsed_days INT NOT NULL DEFAULT 0,
-    scheduled_days INT NOT NULL DEFAULT 0,
+    -- rs-fsrs carries day counts as i64
+    elapsed_days BIGINT NOT NULL DEFAULT 0,
+    scheduled_days BIGINT NOT NULL DEFAULT 0,
     duration_ms INT,
     -- review-log import dedup: one Anki revlog row per card per timestamp
     UNIQUE (card_id, reviewed_at)
