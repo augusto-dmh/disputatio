@@ -18,6 +18,35 @@ export const commands = {
 	 *  honest, so the error says so (ADR 0003 degradation).
 	 */
 	getQueue: () => typedError<QueueDto, string>(__TAURI_INVOKE("get_queue")),
+	/**
+	 *  Marks the chunk complete (`done`); the next chunk in that track's order
+	 *  becomes "next" (requirements.md EARS).
+	 */
+	completeChunk: (chunkId: number) => typedError<null, string>(__TAURI_INVOKE("complete_chunk", { chunkId })),
+	/**
+	 *  The session still open, if any — so the UI can offer resume/stop after a
+	 *  restart.
+	 */
+	getActiveSession: () => typedError<{
+	session_id: number,
+	/**  The chunk being studied (the open session's stage row names it). */
+	chunk_id: number,
+	/**  `false` while the session is open. */
+	closed: boolean,
+	/**  Logged seconds, present once the session is stopped. */
+	duration_seconds: number | null,
+} | null, string>(__TAURI_INVOKE("get_active_session")),
+	/**
+	 *  Opens a study session on the chunk: one session row + the study stage row
+	 *  (migration 0001's `session_stages.stage` enum as-is — ADR 0005, Proposed,
+	 *  may amend it). The chunk flips to `in_progress`; the queue surfaces it.
+	 */
+	startSession: (chunkId: number) => typedError<SessionDto, string>(__TAURI_INVOKE("start_session", { chunkId })),
+	/**
+	 *  Stops the open session: records end time + duration and closes the stage
+	 *  row. The chunk stays `in_progress` — it resurfaces in the queue.
+	 */
+	stopSession: () => typedError<SessionDto, string>(__TAURI_INVOKE("stop_session")),
 	getSettings: () => typedError<SettingsDto, string>(__TAURI_INVOKE("get_settings")),
 	/**
 	 *  Partial update: `vault_path: null` leaves it unchanged (the screen only
@@ -78,6 +107,21 @@ export type ReindexResponse = {
 	chunks: number,
 	/**  Chunks seeded done by the `scope.md` rules in this pass. */
 	done_seeded: number,
+};
+
+/**
+ *  IPC shape of the study session. The DB `BIGINT` ids and the duration
+ *  narrow to 32-bit at this edge (specta forbids BigInt-style types; values
+ *  are tiny in this app).
+ */
+export type SessionDto = {
+	session_id: number,
+	/**  The chunk being studied (the open session's stage row names it). */
+	chunk_id: number,
+	/**  `false` while the session is open. */
+	closed: boolean,
+	/**  Logged seconds, present once the session is stopped. */
+	duration_seconds: number | null,
 };
 
 /**
