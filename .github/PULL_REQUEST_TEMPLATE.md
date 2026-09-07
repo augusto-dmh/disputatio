@@ -1,25 +1,15 @@
-<!--
-Run `make check` before opening. Lane rules: docs/PROCESS.md
--->
+## Summary
 
-## Lane
+(What this does and why, in plain prose — a reader who never saw the branch should be able to follow it.)
 
-<!-- Direct / Planned / Specified — see docs/PROCESS.md -->
+## Changes
 
-## What & why
+(Concrete changes, grouped by area; bold sub-headers when the PR is big.)
+
+-
 
 ## Verification
 
-<!-- `make check` result and/or manual steps performed -->
+(Commands run and their results: test counts, lint/type/build green. Anything still worth a manual pass goes last.)
 
-## Decisions
-
-<!-- ADR link if load-bearing; for the Specified lane, link the spec's Expectations section -->
-
-## Checklist
-
-- [ ] `make check` green
-- [ ] Lane declared above
-- [ ] Conventional title (enforced by CI)
-- [ ] ADR added/linked when a choice is load-bearing
-- [ ] Expectations recorded (Specified lane only)
+<!-- Process notes, one line: lane (docs/PROCESS.md) · ADR link if a choice is load-bearing. -->

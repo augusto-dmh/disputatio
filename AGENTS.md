@@ -54,6 +54,8 @@ Conventional Commits for commits and PR title (enforced: `.githooks/commit-msg` 
 - git/gh run in WSL (`~/projects/disputatio`); Docker runs Windows-side; Postgres on host port 5433.
 - `.env` is gitignored: copy `.env.example`, set `POSTGRES_PASSWORD` (compose fails fast without it).
 - No network → `make infra` fails fast. Surface the failure; don't retry blindly.
+- gh CLI quirk: `gh pr edit` fails on this version (GraphQL projectCards deprecation) — patch PRs via `gh api -X PATCH repos/.../pulls/N -f title=... -F body=@file`.
+- No jq in WSL — use python3 or gh api field files.
 
 ## Growth rule
 
