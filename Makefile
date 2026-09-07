@@ -16,16 +16,20 @@ infra: ## start Postgres (ADR 0003; needs Docker daemon)
 down: ## stop Postgres (volume persists)
 	$(COMPOSE) down
 
-dev: ## run the app
-	@echo "not yet — arrives with slice 0.1 (tauri dev)"
+dev: ## run the app (needs Rust toolchain; Windows dev wants the MSVC toolchain)
+	pnpm tauri dev
 
-lint: fitness ## fitness functions + linters (linters arrive with slice 0.1)
+lint: fitness ## fitness + biome + rust fmt/clippy
+	pnpm biome check .
+	cd src-tauri && cargo fmt --all -- --check
+	cd src-tauri && cargo clippy --all-targets -- -D warnings
 
 fitness: ## governance-as-code: architecture boundaries (ADR 0008)
 	python3 scripts/fitness.py
 
-test: ## unit/integration tests
-	@echo "not yet — vitest/cargo test arrive with slice 0.1"
+test: ## vitest + cargo test
+	pnpm vitest run
+	cd src-tauri && cargo test
 
 check: lint test ## THE GATE — run before every PR
 
