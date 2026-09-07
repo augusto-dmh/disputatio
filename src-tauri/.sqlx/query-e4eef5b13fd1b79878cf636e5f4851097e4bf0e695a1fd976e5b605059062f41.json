@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO chunks (source_id, ord, title, vault_path, est_minutes)\n         VALUES ($1, 1, 'Class 001', $2, 30)\n         ON CONFLICT (vault_path) DO UPDATE SET est_minutes = EXCLUDED.est_minutes",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e4eef5b13fd1b79878cf636e5f4851097e4bf0e695a1fd976e5b605059062f41"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS chunk_count, max(est_minutes) AS est_minutes FROM chunks WHERE vault_path = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "chunk_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "est_minutes",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "018e9f1a43a33458179b382a12f776298abc8cf872c560c3e1faf4d8693d27dd"
+}

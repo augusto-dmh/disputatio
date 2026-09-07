@@ -3,7 +3,7 @@
 Ordered; each task is one PR-able commit/branch. If this list exceeds ~8 tasks, split the feature.
 
 1. [x] Scaffold: `pnpm create tauri-app` (react-ts), pnpm + Biome + Vitest + Tailwind 4 wiring, `.nvmrc`, `make dev` target, CI rust/frontend jobs + dependabot cargo/npm activated (ADR 0009)
-2. [ ] Persistence: sqlx pool, migration 0001 (`sources`, `chunks`, `sessions`, `session_stages`, `app_settings`), testcontainers first integration test, committed `.sqlx/` for offline CI
+2. [x] Persistence: sqlx pool, migration 0001 (`sources`, `chunks`, `sessions`, `session_stages`, `app_settings`), testcontainers first integration test, committed `.sqlx/` for offline CI
 3. [ ] Vault indexer: walk fundamentos + system-design + videos (one video = one chunk), `scope.md` seeding, idempotent upsert on `vault_path`, `reindex` command
 4. [ ] Settings: `app_settings`-backed vault path + per-track position override; Settings screen
 5. [ ] Queue service: ordo next-per-track, stale (14 days), track rotation; `get_queue` command; tauri-specta bindings

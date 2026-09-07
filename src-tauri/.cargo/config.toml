@@ -1,0 +1,6 @@
+# sqlx compiles queries offline by default: committed .sqlx/ data drives the
+# query! macros (ADR 0009 — deterministic builds without a live database).
+# Regenerate with a live DB (shell env overrides this section):
+#   SQLX_OFFLINE=false DATABASE_URL=postgres://... cargo sqlx prepare
+[env]
+SQLX_OFFLINE = "true"
