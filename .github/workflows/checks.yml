@@ -1,4 +1,4 @@
-name: ci
+name: checks
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   fitness:
-    name: fitness & docs
+    name: fitness
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
