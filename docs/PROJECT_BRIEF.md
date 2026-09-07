@@ -15,7 +15,7 @@ The vault stays the source of truth for knowledge (markdown). PostgreSQL in a Do
 ## Decisions (locked)
 
 | # | Decision | Call |
-|---|----------|------|
+| --- | ---------- | ------ |
 | 1 | Destination | Full study environment, built incrementally — PR-driven, every slice shippable, fakeflix-grade quality |
 | 2 | Reviews | Built-in FSRS; the app owns scheduling; reviews are desktop-only, so no `.apkg` export before 1.0 |
 | 3 | learny | Sibling apps, unconnected — shared ideas and structure, shared no code and no data |
@@ -30,12 +30,14 @@ Still open: session shape ([ADR 0005](adr/0005-classical-session-model.md), *Pro
 ## Keep / kill ledger (zero-based outcomes)
 
 **Keep — proven good, carried forward on merit:**
+
 - Markdown class notes in the vault as knowledge truth, versioned in git.
 - The tutoring dialogue with a hint ladder and withheld answers — now evidence-backed (PNAS 2025: unguarded AI answers hurt later exam performance by ~17%; a hint-only tutor avoided the harm).
 - Human curation of AI-drafted cards (keep/kill) — generation without curation is the documented failure mode of AI study tools.
 - learny's engineering discipline: hexagonal boundaries, ADRs, PRs per slice.
 
 **Kill — agent-era workarounds and modern-tool violations:**
+
 - `Dashboard.md` and the PR ceremony for study records (both exist because agents are stateless and need safety rails; an app with its own database needs neither). Vault PRs remain for knowledge changes only.
 - Anki as the review surface. AnkiConnect is demoted to an interim due-count reader plus an optional one-time history import.
 - Session-folder sprawl (five markdown files per session) → Postgres rows, with markdown export on demand.
@@ -56,22 +58,27 @@ Still open: session shape ([ADR 0005](adr/0005-classical-session-model.md), *Pro
 Each slice is a shippable, PR-reviewable release. Nothing merges that can't be used.
 
 ### 0.1 — Queue
+
 Tauri 2 skeleton (React + Vite + Tailwind frontend, thin Rust backend, hexagonal module layout). Docker-compose Postgres started and health-checked by the app. Vault indexer: `fundamentos-enterprise`, `system-design`, and a chunker for `courses/videos` into Postgres + full-text search. Daily Queue v0: *ordo* next-chunks + stale backlog + due counts read live from Anki via AnkiConnect. Start/Stop session button writing the first session rows.
 *Accepts when:* the queue screen correctly answers "what now" from all four sources and a session can be logged.
 
 ### 0.2 — Memoria
+
 Built-in FSRS review UI (`rs-fsrs`). Optional one-time import of Anki review history. Queue's due source switches from AnkiConnect to internal scheduling.
 *Accepts when:* reviews run entirely in-app and the queue reflects internal due state.
 
 ### 0.3 — Narratio
+
 Voice tell-back per chunk: MediaRecorder → ASR → LLM fidelity scoring against the source → omissions/confusions become card drafts → mandatory human keep/kill → into FSRS.
 *Accepts when:* a narrated session produces curated cards with zero chat windows involved.
 
 ### 0.4 — Disputatio
+
 In-app tutoring dialogue: argues against the learner's stated position before revealing the determinatio, hint ladder throughout, transcript and outcome logged to the session.
 *Accepts when:* a full tutoring session happens natively with answers withheld by default.
 
 ### 1.0 — Compositio
+
 Artifact stage (notes → works), stats and reflection (streaks, retention, time-on-task), queue re-ranked by retention + ordo, optional MCP server so coding agents can read and write the queue.
 *Accepts when:* the loop closes: logs change future priorities without manual intervention.
 

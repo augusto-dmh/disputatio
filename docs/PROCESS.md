@@ -5,7 +5,7 @@ Work is sized by lanes, not by a single mandatory cycle. Heavyweight process pay
 ## Lanes
 
 | Lane | When | Planning artifact | Stored spec |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **0 — Direct** | small fix, single subsystem, obvious done-state | none — go straight to code | none — the PR is the artifact |
 | **1 — Planned** | bounded feature, one lane of the architecture | ephemeral plan ("done when" in one sentence); plan mode if available | none — plan is throwaway |
 | **2 — Specified** | ambiguous work, Rust↔TS crossings, schema changes, and every roadmap slice by default | interview → reviewable "what" | `specs/<feature>/` triple (3-file cap) + expectations; ADR if load-bearing |
