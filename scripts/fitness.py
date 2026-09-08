@@ -74,7 +74,7 @@ def check_domain_purity() -> None:
     domain = ROOT / "src-tauri" / "src" / "domain"
     if not domain.is_dir():
         return
-    banned = ["tauri::", "sqlx", "rusqlite", "reqwest", "tokio_postgres", "diesel", "serde_json::from_str"]
+    banned = ["tauri::", "sqlx", "rusqlite", "reqwest", "tokio_postgres", "diesel", "serde_json::from_str", "rs_fsrs"]
     for rs in domain.rglob("*.rs"):
         text = rs.read_text(encoding="utf-8", errors="replace")
         for token in banned:

@@ -1,6 +1,6 @@
 //! Daily queue service (specs/queue-slice/design.md: `queue.rs` —
 //! `build_daily_queue`): compose the queue read model, the position
-//! overrides and the Anki due total into one answer. Pure composition —
+//! overrides and the internal due count into one answer. Pure composition —
 //! the adapters own the world.
 
 use std::collections::BTreeMap;
@@ -8,9 +8,9 @@ use std::fmt;
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::anki::{AnkiError, AnkiGateway};
-use crate::domain::queue::{AnkiStatus, DailyQueue, QueueChunk, QueueRepo};
+use crate::domain::queue::{DailyQueue, QueueChunk, QueueRepo};
 use crate::domain::repo::RepoError;
+use crate::domain::review::CardRepo;
 use crate::domain::settings::{track_from_key, SettingsError, SettingsStore};
 
 #[derive(Debug)]
@@ -32,19 +32,19 @@ impl std::error::Error for QueueError {}
 
 /// Build the daily queue: the domain's selection rules (stale first, fresh
 /// frontier, next queued at/after the `track_position:<track>` override)
-/// over the repo's read model, with the Anki due total in the header. Anki
-/// is display-only — a failure degrades to a header note, never an error
-/// (specs/queue-slice/design.md point 3, requirements.md EARS).
-pub async fn build_daily_queue<R, S, A>(
+/// over the repo's read model, with the internal memoria backlog (kept cards
+/// due ≤ now) in the header. ADR 0004: AnkiConnect left the queue path in
+/// slice 0.2 — nothing here reaches outside the state store.
+pub async fn build_daily_queue<R, S, C>(
     repo: &R,
     store: &S,
-    anki: &A,
+    cards: &C,
     now: DateTime<Utc>,
 ) -> Result<DailyQueue, QueueError>
 where
     R: QueueRepo,
     S: SettingsStore,
-    A: AnkiGateway,
+    C: CardRepo,
 {
     let chunks: Vec<QueueChunk> = repo.open_chunks().await.map_err(QueueError::Repo)?;
     let mut overrides = BTreeMap::new();
@@ -53,16 +53,9 @@ where
             overrides.insert(track.to_string(), value);
         }
     }
-    let anki_status = match anki.due_total().await {
-        Ok(total) => AnkiStatus::Due(total),
-        Err(AnkiError::Offline) => AnkiStatus::Offline,
-        Err(AnkiError::BadResponse(detail)) => AnkiStatus::Unavailable(detail),
-    };
+    let due = cards.due_count(now).await.map_err(QueueError::Repo)?;
     Ok(crate::domain::queue::build_queue(
-        chunks,
-        &overrides,
-        anki_status,
-        now,
+        chunks, &overrides, due, now,
     ))
 }
 
@@ -70,6 +63,7 @@ where
 mod tests {
     use super::*;
     use crate::domain::chunk::ChunkStatus;
+    use crate::domain::review::{Card, CardState, ReviewLog};
 
     struct FakeRepo(Vec<QueueChunk>);
 
@@ -115,11 +109,31 @@ mod tests {
         }
     }
 
-    struct FakeAnki(Result<u64, AnkiError>);
+    /// The cards store double: a fixed due count, so the header contract is
+    /// observable without real scheduling.
+    struct FakeCards(u64);
 
-    impl AnkiGateway for FakeAnki {
-        async fn due_total(&self) -> Result<u64, AnkiError> {
-            self.0.clone()
+    impl CardRepo for FakeCards {
+        async fn due_count(&self, _now: DateTime<Utc>) -> Result<u64, RepoError> {
+            Ok(self.0)
+        }
+        async fn due_cards(
+            &self,
+            _limit: i64,
+            _now: DateTime<Utc>,
+        ) -> Result<Vec<Card>, RepoError> {
+            unimplemented!("the queue only reads the count")
+        }
+        async fn get(&self, _id: i64) -> Result<Option<Card>, RepoError> {
+            unimplemented!("the queue only reads the count")
+        }
+        async fn apply_review(
+            &self,
+            _card_id: i64,
+            _state: &CardState,
+            _log: &ReviewLog,
+        ) -> Result<(), RepoError> {
+            unimplemented!("the queue only reads the count")
         }
     }
 
@@ -137,34 +151,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn anki_outcomes_degrade_to_header_states_never_errors() {
+    async fn the_header_counts_the_internal_memoria_backlog() {
         let repo = FakeRepo(vec![]);
         let store = FakeStore(vec![]);
 
-        let queue = build_daily_queue(&repo, &store, &FakeAnki(Ok(12)), Utc::now())
+        let queue = build_daily_queue(&repo, &store, &FakeCards(12), Utc::now())
             .await
-            .expect("anki ok");
-        assert_eq!(queue.anki, AnkiStatus::Due(12));
+            .expect("queue builds");
+        assert_eq!(queue.due, 12);
 
-        let queue = build_daily_queue(
-            &repo,
-            &store,
-            &FakeAnki(Err(AnkiError::Offline)),
-            Utc::now(),
-        )
-        .await
-        .expect("anki offline degrades");
-        assert_eq!(queue.anki, AnkiStatus::Offline);
-
-        let queue = build_daily_queue(
-            &repo,
-            &store,
-            &FakeAnki(Err(AnkiError::BadResponse("weird payload".into()))),
-            Utc::now(),
-        )
-        .await
-        .expect("anki bad response degrades");
-        assert_eq!(queue.anki, AnkiStatus::Unavailable("weird payload".into()));
+        let queue = build_daily_queue(&repo, &store, &FakeCards(0), Utc::now())
+            .await
+            .expect("empty backlog is a normal state, not an error");
+        assert_eq!(queue.due, 0);
     }
 
     #[tokio::test]
@@ -178,7 +177,7 @@ mod tests {
             "courses/videos/item-02".to_string(),
         )]);
 
-        let queue = build_daily_queue(&repo, &store, &FakeAnki(Ok(0)), Utc::now())
+        let queue = build_daily_queue(&repo, &store, &FakeCards(0), Utc::now())
             .await
             .expect("queue builds");
         let items = &queue.tracks[0].items;
@@ -189,15 +188,15 @@ mod tests {
     #[tokio::test]
     async fn repo_and_settings_failures_surface_honestly() {
         let store = FakeStore(vec![]);
-        let anki = FakeAnki(Ok(0));
+        let cards = FakeCards(0);
 
-        let err = build_daily_queue(&FailingRepo, &store, &anki, Utc::now())
+        let err = build_daily_queue(&FailingRepo, &store, &cards, Utc::now())
             .await
             .expect_err("repo failure surfaces");
         assert!(matches!(err, QueueError::Repo(_)));
 
         let repo = FakeRepo(vec![]);
-        let err = build_daily_queue(&repo, &FailingStore, &anki, Utc::now())
+        let err = build_daily_queue(&repo, &FailingStore, &cards, Utc::now())
             .await
             .expect_err("settings failure surfaces");
         assert!(matches!(err, QueueError::Settings(_)));
@@ -212,7 +211,7 @@ mod tests {
         ]);
         let store = FakeStore(vec![]);
 
-        let queue = build_daily_queue(&repo, &store, &FakeAnki(Ok(0)), Utc::now())
+        let queue = build_daily_queue(&repo, &store, &FakeCards(0), Utc::now())
             .await
             .expect("queue builds");
         let order: Vec<&str> = queue.tracks.iter().map(|t| t.track.as_str()).collect();

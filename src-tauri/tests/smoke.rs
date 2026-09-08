@@ -1,6 +1,7 @@
 //! Manual smoke for slice 0.1 (specs/queue-slice/requirements.md "Done
-//! when"): the full loop against a REAL vault — index twice (idempotency),
-//! build the daily queue (rotation, stale flags, Anki header), start/stop a
+//! when"), updated for slice 0.2's due source (specs/memoria-slice): the
+//! full loop against a REAL vault — index twice (idempotency), build the
+//! daily queue (rotation, stale flags, internal due header), start/stop a
 //! session, and read the study record back via SQL.
 //!
 //! Not part of CI. Run with:
@@ -11,17 +12,16 @@
 //! ```
 //!
 //! Uses `DATABASE_URL` when set (your running `make infra` Postgres — rows
-//! persist), otherwise a throwaway Postgres 16 container (ADR 0009). Anki
-//! talks to the real AnkiConnect on 127.0.0.1:8765 — offline is a valid,
-//! recorded outcome (design.md: display-only, never gates).
+//! persist), otherwise a throwaway Postgres 16 container (ADR 0009). The
+//! due header counts the internal memoria backlog; Anki is not part of the
+//! queue anymore (ADR 0004: never required at runtime after 0.2).
 
 use std::path::PathBuf;
 
 use chrono::Utc;
 use disputatio_lib::application::queue::build_daily_queue;
 use disputatio_lib::application::session::{start_session, stop_session};
-use disputatio_lib::domain::queue::AnkiStatus;
-use disputatio_lib::infrastructure::anki_connect::AnkiConnectGateway;
+use disputatio_lib::infrastructure::card_pg::PgCardRepo;
 use disputatio_lib::infrastructure::index_repo::PgIndexRepo;
 use disputatio_lib::infrastructure::pg;
 use disputatio_lib::infrastructure::queue_pg::PgQueueRepo;
@@ -90,21 +90,16 @@ async fn slice_0_1_smoke_real_vault_end_to_end() {
     assert_eq!(rows as usize, second.chunks, "row count matches the report");
     println!("[smoke] index report: {first:?}");
 
-    // 2. The daily queue: rotation, stale flags, Anki header (real Anki or
-    //    the offline note — both are honest outcomes).
+    // 2. The daily queue: rotation, stale flags, the internal due header.
     let queue = build_daily_queue(
         &PgQueueRepo(pool.clone()),
         &PgSettingsStore(pool.clone()),
-        &AnkiConnectGateway::default(),
+        &PgCardRepo(pool.clone()),
         Utc::now(),
     )
     .await
     .expect("queue builds");
-    match &queue.anki {
-        AnkiStatus::Due(total) => println!("[smoke] anki due total: {total}"),
-        AnkiStatus::Offline => println!("[smoke] anki: offline (AnkiConnect unreachable)"),
-        AnkiStatus::Unavailable(detail) => println!("[smoke] anki unavailable: {detail}"),
-    }
+    println!("[smoke] internal due reviews: {}", queue.due);
     assert!(
         !queue.tracks.is_empty(),
         "the real vault produced at least one queue section"

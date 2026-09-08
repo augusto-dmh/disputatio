@@ -13,11 +13,23 @@ export const commands = {
 	reindex: (vaultPath: string | null) => typedError<ReindexResponse, string>(__TAURI_INVOKE("reindex", { vaultPath })),
 	/**
 	 *  The daily queue: per track the next chunk in course order, stale items
-	 *  flagged ahead of new ones, the Anki due total (or the offline note) in
-	 *  the header. Requires the state store — without it the answer cannot be
-	 *  honest, so the error says so (ADR 0003 degradation).
+	 *  flagged ahead of new ones, the internal due count in the header.
+	 *  Requires the state store — without it the answer cannot be honest, so
+	 *  the error says so (ADR 0003 degradation).
 	 */
 	getQueue: () => typedError<QueueDto, string>(__TAURI_INVOKE("get_queue")),
+	/**
+	 *  Grades a card: schedules via FSRS, persists card state + review row in
+	 *  one transaction, returns the card as it now reads (the UI shows the next
+	 *  due). Unknown grade spellings are rejected here, not in the domain.
+	 */
+	gradeCard: (cardId: number, grade: string, durationMs: number | null) => typedError<CardDto, string>(__TAURI_INVOKE("grade_card", { cardId, grade, durationMs })),
+	/**
+	 *  The review batch: kept cards due now, oldest first. The UI shows "nothing
+	 *  due" for an empty batch — an empty cards table is a normal state, not an
+	 *  error (requirements.md EARS).
+	 */
+	listDueCards: (limit: number | null) => typedError<CardDto[], string>(__TAURI_INVOKE("list_due_cards", { limit })),
 	/**
 	 *  Marks the chunk complete (`done`); the next chunk in that track's order
 	 *  becomes "next" (requirements.md EARS).
@@ -58,26 +70,29 @@ export const commands = {
 
 /* Types */
 /**
- *  Anki due header. Display-only — the total never gates the queue, and any
- *  Anki failure degrades to a note while the queue answers normally
- *  (specs/queue-slice/design.md point 3, requirements.md EARS).
+ *  IPC shape of a card. The DB `BIGINT` id narrows to 32-bit at this edge
+ *  (specta forbids BigInt-style types; ids are tiny in this app); the due
+ *  date crosses as RFC 3339 — the UI only displays it.
  */
-export type AnkiHeaderDto = {
-	/**
-	 *  Total due cards when Anki answered; `null` while offline/unavailable.
-	 *  (64-bit narrowed at the IPC edge — specta forbids BigInt-style types.)
-	 */
-	due_total: number | null,
-	/**
-	 *  Human note when Anki did not answer ("Anki offline", or the failure
-	 *  detail); `null` when `due_total` is present.
-	 */
-	note: string | null,
+export type CardDto = {
+	id: number,
+	deck: string | null,
+	front: string,
+	back: string,
+	/**  RFC 3339; `null` only for a card that never entered scheduling. */
+	due: string | null,
+	/**  `"learning" | "review" | "relearning"`; `null` = never reviewed (new). */
+	state: string | null,
+	reps: number,
 };
 
 /**  The daily queue: one IPC call answering "what do I study now". */
 export type QueueDto = {
-	anki: AnkiHeaderDto,
+	/**
+	 *  The memoria backlog: kept cards due now (internal scheduling,
+	 *  migration 0002). Narrowed from 64-bit at this edge.
+	 */
+	due_total: number,
 	/**
 	 *  Track sections in stable rotation order (fundamentos → system-design
 	 *  → videos); tracks with nothing to show are omitted.

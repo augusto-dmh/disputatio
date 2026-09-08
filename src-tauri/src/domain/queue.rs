@@ -54,22 +54,14 @@ pub struct TrackQueue {
     pub items: Vec<QueueItem>,
 }
 
-/// Anki header state. Display-only in this slice — it never gates the queue
-/// (design.md point 3, ADR 0004); every failure degrades to a note.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AnkiStatus {
-    /// AnkiConnect answered: total due cards across all decks.
-    Due(u64),
-    /// AnkiConnect unreachable — the queue continues normally.
-    Offline,
-    /// Anki answered but not usefully; the detail is display-only.
-    Unavailable(String),
-}
-
-/// The daily queue: one screen answering "what do I study now".
+/// The daily queue: one screen answering "what do I study now". The due
+/// header counts the app's own review backlog (kept cards due ≤ now,
+/// migration 0002) — AnkiConnect left the queue path in slice 0.2 (ADR 0004:
+/// Anki is never required at runtime).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DailyQueue {
-    pub anki: AnkiStatus,
+    /// Kept cards with `due <= now` — the memoria backlog.
+    pub due: u64,
     /// Track sections in stable rotation order; tracks with nothing to show
     /// are omitted.
     pub tracks: Vec<TrackQueue>,
@@ -162,11 +154,12 @@ pub fn track_items(
 
 /// Build the daily queue: pick per-track items, then merge the sections in
 /// stable rotation order. `position_overrides` carries the raw
-/// `track_position:<track>` settings values (chunk `vault_path`s).
+/// `track_position:<track>` settings values (chunk `vault_path`s); `due` is
+/// the internal memoria backlog (kept cards due ≤ now).
 pub fn build_queue(
     chunks: Vec<QueueChunk>,
     position_overrides: &BTreeMap<String, String>,
-    anki: AnkiStatus,
+    due: u64,
     now: DateTime<Utc>,
 ) -> DailyQueue {
     let mut by_track: BTreeMap<String, Vec<QueueChunk>> = BTreeMap::new();
@@ -185,7 +178,7 @@ pub fn build_queue(
             tracks.push(TrackQueue { track, items });
         }
     }
-    DailyQueue { anki, tracks }
+    DailyQueue { due, tracks }
 }
 
 #[cfg(test)]
@@ -313,9 +306,9 @@ mod tests {
             chunk("philosophy", 2, ChunkStatus::Queued, 0),
         ];
         let overrides = BTreeMap::new();
-        let queue = build_queue(chunks, &overrides, AnkiStatus::Due(7), now);
+        let queue = build_queue(chunks, &overrides, 7, now);
 
-        assert_eq!(queue.anki, AnkiStatus::Due(7));
+        assert_eq!(queue.due, 7);
         let section: Vec<&str> = queue.tracks.iter().map(|t| t.track.as_str()).collect();
         assert_eq!(
             section,
