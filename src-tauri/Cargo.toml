@@ -22,7 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.8", features = ["tls-rustls", "postgres", "macros", "migrate", "chrono", "runtime-tokio"] }
+sqlx = { version = "0.9", features = ["tls-rustls", "postgres", "macros", "migrate", "chrono", "runtime-tokio"] }
 async-trait = "0.1"
 dotenvy = "0.15"
 # Timestamps: the stale rule (14 days) and session durations (tasks 5–8);
